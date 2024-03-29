@@ -1,5 +1,4 @@
 export interface Search {
-  id: string
   title: string
   url: string
   image: string | null
