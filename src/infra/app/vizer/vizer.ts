@@ -108,6 +108,12 @@ export function getEmbeds (id: string, data: DataPlayers): string[] {
   if (data.warezcdn === 3) embeds.push(`${DEFAULT_OPTIONS.BASE_URL}/embed/getEmbed.php?id=${id}&sv=warezcdn`)
   return embeds
 }
+export const getstr = (string: string, start: string, end: string, i: number): string => {
+  i++
+  let str = string.split(start)
+  str = str[i].split(end)
+  return str[0]
+}
 
 export const sendRequestAPI = async (form: any): Promise<any> => {
   const { body } = await got.post(DEFAULT_OPTIONS.BASE_URL + '/includes/ajax/publicFunctions.php', {
@@ -233,10 +239,23 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       id: movieId
     })
     const keys = Object.keys(data)
-    return keys.map(key => ({
-      type: data[key].audio === '2' ? 'dub' : 'leg',
-      url: `${DEFAULT_OPTIONS.BASE_URL}/${data[key].redirector}`
-    }))
+    const results: GetDownloadsRepository.Result[] = []
+    for (const key of keys) {
+      const url = `${DEFAULT_OPTIONS.BASE_URL}/${data[key].redirector}`
+      let urlDirect = ''
+      try {
+        const { body } = await got(url)
+        const urlReal = getstr(body, 'window.location.href="', '"', 0)
+        urlDirect = urlReal
+      } catch (err) {
+        urlDirect = url
+      }
+      results.push({
+        type: data[key].audio === '2' ? 'dub' : 'leg',
+        url: urlDirect
+      })
+    }
+    return results
   }
 
   async load (seasonId: string): Promise<GetSeasonEpisodesRepository.Result[]> {
