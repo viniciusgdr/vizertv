@@ -4,6 +4,7 @@ import { load } from 'cheerio'
 import { type MovieType, type DataPlayers } from '../../../domain/models/player'
 import { type GetDownloadsRepository } from '../../../data/protocols/get-downloads-repository'
 import { type GetSeasonEpisodesRepository } from '../../../data/protocols/get-season-episodes'
+import { MixdropDownloader } from '../mixdrop/downloader'
 export interface ICasts {
   name: string
   picture: string
@@ -250,8 +251,16 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       } catch (err) {
         urlDirect = url
       }
+      let urlDownload: Response | null = null
+      try {
+        const mixdrop = new MixdropDownloader()
+        urlDownload = await mixdrop.get(urlDirect)
+      } catch (err) {
+        urlDownload = null
+      }
       results.push({
         type: data[key].audio === '2' ? 'dub' : 'leg',
+        urlDownload,
         url: urlDirect
       })
     }

@@ -9,24 +9,28 @@ Você também pode oferecer suporte a outras plataformas, pois o código segue o
 Instale o projeto com:
 
 ```bash
-  npm install github:viniciusgdr/vizertv-v2
+  npm install github:viniciusgdr/vizertv
 ```
 
 ## Uso
 
 # Buscar Filmes/Séries/Animes
-```typescript
-import { VizerTV } from 'vizertv-v2';
-const vizer = makeFilmProvider('vizer')
 
-const search = await vizer.getSearch.get('greys anatomy')
-console.log(search)
+```typescript
+import { VizerTV } from "vizertv-v2";
+const vizer = makeFilmProvider("vizer");
+
+const search = await vizer.getSearch.get("greys anatomy");
+console.log(search);
 ```
 
 # Buscar Detalhes de um Filme/Série/Anime
+
 ```typescript
-const result = await vizer.getInfo.get('https://vizertv.in/serie/online/greys-anatomy')
-console.log(result)
+const result = await vizer.getInfo.get(
+  "https://vizertv.in/serie/online/greys-anatomy"
+);
+console.log(result);
 /*
 {
   name: string
@@ -53,23 +57,40 @@ console.log(result)
 }
 */
 ```
+
 # Buscar Episódios de uma Série
+
 ```typescript
-import { VizerTV } from 'vizertv-v2';
-const episodes = await vizer.seasonEpisodes.load(result.seasons[0].dataSeasonId)
-console.log(episodes)
+import { VizerTV } from "vizertv-v2";
+const episodes = await vizer.seasonEpisodes.load(
+  result.seasons[0].dataSeasonId
+);
+console.log(episodes);
 ```
+
 # Buscar Player de um Filme/Série/Anime
+
 ```typescript
-import { VizerTV } from 'vizertv-v2';
-const player = await vizer.getPlayerEpisode.load(episodes[0].id)
-console.log(player)
+import { VizerTV } from "vizertv-v2";
+const player = await vizer.getPlayerEpisode.load(episodes[0].id);
+console.log(player);
 ```
 
 # Download de Filmes/Séries/Animes
+
 ```typescript
-import { VizerTV } from 'vizertv-v2';
-const download = await vizer.getDownloads.get(result.movieId, result.movieType)
-console.log(download)
+import { VizerTV } from "vizertv-v2";
+const download = await vizer.getDownloads.get(result.movieId, result.movieType);
+console.log(download);
 ```
 
+Retorno:
+
+```typescript
+{
+  url: string;
+  // Response é o fetch do video, você pode baixar usando (await urlDownload.buffer())
+  urlDownload: Response | null; // Se não for encontrado o download ou deu erro, retorna null
+  type: TypeAudio;
+}
+```

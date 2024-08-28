@@ -7,6 +7,7 @@ export interface GetDownloadsRepository {
 export namespace GetDownloadsRepository {
   export interface Result {
     url: string
+    urlDownload: Response | null
     type: TypeAudio
   }
 }
