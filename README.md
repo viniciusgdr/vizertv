@@ -25,7 +25,6 @@ console.log(search);
 ```
 
 # Buscar Detalhes de um Filme/Série/Anime
-
 ```typescript
 const result = await vizer.getInfo.get(
   "https://vizertv.in/serie/online/greys-anatomy"
@@ -57,9 +56,7 @@ console.log(result);
 }
 */
 ```
-
-# Buscar Episódios de uma Série
-
+## Buscar Episódios de uma Série
 ```typescript
 import { VizerTV } from "vizertv-v2";
 const episodes = await vizer.seasonEpisodes.load(
@@ -67,17 +64,14 @@ const episodes = await vizer.seasonEpisodes.load(
 );
 console.log(episodes);
 ```
-
-# Buscar Player de um Filme/Série/Anime
-
+## Buscar Player de uma Série/Anime
 ```typescript
 import { VizerTV } from "vizertv-v2";
 const player = await vizer.getPlayerEpisode.load(episodes[0].id);
 console.log(player);
 ```
 
-# Download de Filmes/Séries/Animes
-
+## Download de Filmes/Séries/Animes
 ```typescript
 import { VizerTV } from "vizertv-v2";
 const download = await vizer.getDownloads.get(result.movieId, result.movieType);
