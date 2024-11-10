@@ -5,6 +5,7 @@ import { type MovieType, type DataPlayers } from '../../../domain/models/player'
 import { type GetDownloadsRepository } from '../../../data/protocols/get-downloads-repository'
 import { type GetSeasonEpisodesRepository } from '../../../data/protocols/get-season-episodes'
 import { MixdropDownloader } from '../mixdrop/downloader'
+import { getUrl } from './get-url'
 export interface ICasts {
   name: string
   picture: string
@@ -109,6 +110,22 @@ export function getEmbeds (id: string, data: DataPlayers): string[] {
   if (data.warezcdn === 3) embeds.push(`${DEFAULT_OPTIONS.BASE_URL}/embed/getEmbed.php?id=${id}&sv=warezcdn`)
   return embeds
 }
+
+export async function getAsyncEmbeds (warezUrl: string, id: string, data: DataPlayers, lang: string): Promise<string[]> {
+  const embeds: string[] = []
+  await Promise.allSettled([
+    data.mixdrop === 3 ? embeds.push(await getUrl(warezUrl, 'mixdrop', lang)) : null,
+    // TODO: support streamtape
+    data.streamtape === 3 ? embeds.push(`${DEFAULT_OPTIONS.BASE_URL}/embed/getEmbed.php?id=${id}&sv=streamtape`) : null,
+    data.warezcdn === 3 ? embeds.push(await getUrl(warezUrl, 'warezcdn', lang)) : null
+  ])
+
+  if (embeds.length === 0) {
+    return getEmbeds(id, data)
+  }
+
+  return embeds
+}
 export const getstr = (string: string, start: string, end: string, i: number): string => {
   i++
   let str = string.split(start)
@@ -185,7 +202,7 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
     const $ = load(html)
     const areaAudios = $('div.area.audios > div').toArray()
     const type = getType(url)
-    const imageUrl = `${DEFAULT_OPTIONS.BASE_URL}${$('div > picture > img').attr('src') as string}` ?? ''
+    const imageUrl = `${DEFAULT_OPTIONS.BASE_URL}${$('div > picture > img').attr('src') as string}`
     // https://vizertv.in/content/series/posterPt/342/18620.jpg
     const movieId = new URL(imageUrl).pathname.split('/').pop()?.split('.')[0] as string
     let infos: Partial<GetInfoRepository.Result> = {
@@ -199,28 +216,29 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       movieType: type
     }
     const imdbTT = ($('#ms > div:nth-child(1) > section > div.infos > a').attr('href') as string).trim().split('/')[4]
+    const warezcdn = `https://embed.warezcdn.link/${type}/${imdbTT}`
     if (type === 'filme') {
       infos = {
         ...infos,
         movieType: 'filme',
-        warezcdn: 'https://embed.warezcdn.net/filme/' + imdbTT,
-        players: areaAudios.map((elem, i) => {
+        warezcdn,
+        players: await Promise.all(areaAudios.map(async (elem, i) => {
           const dataLoadPlayer = $(elem).attr('data-load-player') as string
           const typeAudio = $(elem).attr('data-audio') as string
           const dataPlayers = JSON.parse($(elem).attr('data-players') as string) as unknown as DataPlayers
-          const players = getEmbeds(dataLoadPlayer, dataPlayers)
+          const players = await getAsyncEmbeds(warezcdn, dataLoadPlayer, dataPlayers, typeAudio)
           return {
             dataLoadPlayer,
             typeAudio: typeAudio === 'legendado' ? 'leg' : 'dub',
             players
           }
-        })
+        }))
       }
     } else {
       infos = {
         ...infos,
         movieType: 'serie',
-        warezcdn: 'https://embed.warezcdn.net/serie/' + imdbTT,
+        warezcdn: 'https://embed.warezcdn.link/serie/' + imdbTT,
         seasons: $('div.selectorModal > div.seasons > div.list > div').toArray().map((elem, i) => {
           return {
             number: i + 1,
