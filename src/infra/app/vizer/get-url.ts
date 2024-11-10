@@ -3,7 +3,7 @@ import { load } from 'cheerio'
 
 export const getUrl = async (url: string, local: string, typeAudio: string): Promise<string> => {
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   })
   const page = await browser.newPage()
