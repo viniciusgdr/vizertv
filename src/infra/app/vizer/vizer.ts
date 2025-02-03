@@ -175,16 +175,17 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       $('div.listItems > a').each((i, elem) => {
         const url = $(elem).attr('href') ?? ''
         const img = $(elem).find('picture > img').attr('src')
+        const isMovie = !!url.includes('filme')
         if (
           (!options?.limit || i < options?.limit) &&
-          (options?.type === 'series' ? !!url.includes('serie') : options?.type === 'movie' ? !!url.includes('filme') : true)
+          (options?.type === 'series' ? isMovie : options?.type === 'movie' ? !!url.includes('filme') : true)
         ) {
           results.push({
             title: $(elem).find('div.infos > span').text().trim(),
             url: DEFAULT_OPTIONS.BASE_URL + '/' + url,
             image: img ? DEFAULT_OPTIONS.BASE_URL + img : null,
-            yearFilm: $(elem).find('div.y').text().trim() || null,
-            rateFilm: $(elem).find('div.r').text().trim() || null
+            yearFilm: $(elem).find(isMovie ? 'div.r' : 'div.y').text().trim() || null,
+            rateFilm: $(elem).find(isMovie ? 'div.y' : 'div.r').text().trim() || null
           })
         }
         if (i === options?.limit) resolve(true)
