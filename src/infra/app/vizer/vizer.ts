@@ -99,8 +99,8 @@ const DEFAULT_OPTIONS = {
   headers: {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'
   },
-  BASE_URL: 'https://vizertv.in',
-  SEARCH_URL: 'https://vizertv.in/pesquisar/'
+  BASE_URL: 'https://novizer.com',
+  SEARCH_URL: 'https://novizer.com/pesquisar/'
 }
 const getType = (url: string): MovieType => url.includes('serie') ? 'serie' : 'filme'
 export function getEmbeds (id: string, data: DataPlayers): string[] {
