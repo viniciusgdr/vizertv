@@ -1,4 +1,4 @@
-import { getstr } from '../vizer/vizer'
+import { getstr } from '../../../utils/functions'
 
 function constructUrlFromObfuscatedCode (obfuscatedString: string, keys: string[]): string {
   const map: Record<string, string> = {}

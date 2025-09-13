@@ -10,6 +10,7 @@ export interface Player {
   dataLoadPlayer: string
   typeAudio: TypeAudio
   players: string[]
+  m3u8Players?: string[]
 }
 
 export interface Season {

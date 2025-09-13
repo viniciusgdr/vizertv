@@ -6,6 +6,7 @@ import { type GetDownloadsRepository } from '../../../data/protocols/get-downloa
 import { type GetSeasonEpisodesRepository } from '../../../data/protocols/get-season-episodes'
 import { MixdropDownloader } from '../mixdrop/downloader'
 import { getUrl } from './get-url'
+import { getstr } from '../../../utils/functions'
 export interface ICasts {
   name: string
   picture: string
@@ -125,12 +126,6 @@ export async function getAsyncEmbeds (warezUrl: string, id: string, data: DataPl
   }
 
   return embeds
-}
-export const getstr = (string: string, start: string, end: string, i: number): string => {
-  i++
-  let str = string.split(start)
-  str = str[i].split(end)
-  return str[0]
 }
 
 export const sendRequestAPI = async (form: any): Promise<any> => {
