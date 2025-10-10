@@ -212,7 +212,7 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       movieType: type
     }
     const imdbTT = ($('#ms > div:nth-child(1) > section > div.infos > a').attr('href') as string).trim().split('/')[4]
-    const warezcdn = `https://embed.warezcdn.link/${type}/${imdbTT}`
+    const warezcdn = `https://embed.warezcdn.cc/${type}/${imdbTT}`
     if (type === 'filme') {
       infos = {
         ...infos,
@@ -234,7 +234,7 @@ export class VizerRepository implements LoadSearchRepository, GetInfoRepository,
       infos = {
         ...infos,
         movieType: 'serie',
-        warezcdn: 'https://embed.warezcdn.link/serie/' + imdbTT,
+        warezcdn: 'https://embed.warezcdn.cc/serie/' + imdbTT,
         seasons: $('div.selectorModal > div.seasons > div.list > div').toArray().map((elem, i) => {
           return {
             number: i + 1,
