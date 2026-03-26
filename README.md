@@ -1,48 +1,40 @@
-# VizerTV - Filmes, Séries e Animes
+# VizerTV - Filmes, Series e Animes
 
-O Projeto consegue capturar os players e resultados de filmes, séries e animes do site https://vizer.tv, pelo provedor WarezCDN.
+Biblioteca para buscar, obter informacoes e players de filmes, series e animes via WarezCDN (BoraflixHD).
 
-Você também pode oferecer suporte a outras plataformas.
-
-
-
-## Instalação
-
-Instale o projeto com:
+## Instalacao
 
 ```bash
-  npm install github:viniciusgdr/vizertv
+npm install github:viniciusgdr/vizertv
 ```
-
-## Aviso
-
-Depois de uma atualização no WarezCDN em relação a bloqueio de acesso de fora do site, o player de séries e animes está sem funcionar no momento. Estou trabalhando para driblar isso e trazer de volta o player de séries e animes. 
-
-Atualmente, o player de filmes está funcionando normalmente porque consegui driblar o bloqueio usando o Puppeteer.
-
-O de séries e animes está em desenvolvimento, pois requer cliques em botões e inputs para conseguir o link do player.
-
-**Caso não queira usar os players, o download está funcionando normalmente para filmes, séries e animes.**
 
 ## Uso
 
-#### Buscar Filmes/Séries/Animes
+#### Inicializacao
 
 ```typescript
-import { VizerTV } from "vizertv-v2";
-const vizer = makeFilmProvider("vizer");
+import { makeFilmProvider } from 'vizertv-v2'
 
-const search = await vizer.getSearch.get("greys anatomy");
-console.log(search);
+const provider = makeFilmProvider('warezcdn')
 ```
 
-#### Buscar Detalhes de um Filme/Série/Anime
+#### Buscar Filmes/Series/Animes
+
 ```typescript
-const result = await vizer.getInfo.get(
-  "https://vizertv.in/serie/online/greys-anatomy"
-);
-console.log(result);
-/*
+const results = await provider.getSearch.get('breaking bad')
+console.log(results)
+```
+
+#### Obter Detalhes (Info)
+
+```typescript
+const info = await provider.getInfo.get(results[0].url)
+console.log(info)
+```
+
+Retorno para filmes:
+
+```typescript
 {
   name: string
   year: string
@@ -50,53 +42,66 @@ console.log(result);
   duration: string
   description: string
   image: string
-  players: Player[]
-  warezcdn: string
+  players: Player[]  // URLs de stream HLS resolvidas
   movieId: string
   movieType: 'filme'
-} | {
+}
+```
+
+Retorno para series:
+
+```typescript
+{
   name: string
   year: string
   rate: string
   duration: string
   description: string
   image: string
-  warezcdn: string
   movieId: string
   movieType: 'serie'
   seasons: Season[]
 }
-*/
-```
-####  Buscar Episódios de uma Série
-```typescript
-import { VizerTV } from "vizertv-v2";
-const episodes = await vizer.seasonEpisodes.load(
-  result.seasons[0].dataSeasonId
-);
-console.log(episodes);
-```
-#### Buscar Player de uma Série/Anime
-```typescript
-import { VizerTV } from "vizertv-v2";
-const player = await vizer.getPlayerEpisode.load(episodes[0].id);
-console.log(player);
 ```
 
-#### Download de Filmes/Séries/Animes
+#### Episodios de uma Temporada
+
 ```typescript
-import { VizerTV } from "vizertv-v2";
-const download = await vizer.getDownloads.get(result.movieId, result.movieType);
-console.log(download);
+const episodes = await provider.seasonEpisodes.load(info.seasons[0].dataSeasonId)
+console.log(episodes)
+```
+
+#### Player de um Episodio
+
+```typescript
+const player = await provider.getPlayerEpisode.load(episodes[0].id)
+console.log(player)
+// Retorna URLs de stream HLS (m3u8)
+```
+
+#### Download
+
+```typescript
+const download = await provider.getDownloads.get(info.movieId, info.movieType)
+console.log(download)
 ```
 
 Retorno:
 
 ```typescript
 {
-  url: string;
-  // Response é o fetch do video, você pode baixar usando (await urlDownload.buffer())
-  urlDownload: Response | null; // Se não for encontrado o download ou deu erro, retorna null
-  type: TypeAudio;
+  url: string
+  urlDownload: Response | null
+  type: TypeAudio
 }
 ```
+
+## Provedor
+
+**WarezCDN** (via BoraflixHD) - Unico provedor ativo. Retorna streams HLS (m3u8) para filmes e series, com fallback via XPASS para conteudos sem CDN direto.
+
+## Notas
+
+- Os players retornam URLs HLS (`master.m3u8`) com TTL de ~2 horas
+- O CDN (`llanfairpwllgwyngy.com`) nao envia headers CORS; para uso em browser, e necessario um proxy
+- Para download server-side, use o `HlsDownloader` que ja faz parse do m3u8 e download dos segmentos

@@ -5,9 +5,10 @@ export interface GetInfoRepository {
 }
 
 export interface Movie {
+  id: string
   name: string
-  year: string
-  rate: string
+  rateFilm: string
+  yearFilm: string
   duration: string
   description: string
   image: string
@@ -18,9 +19,10 @@ export interface Movie {
 }
 
 export interface Serie {
+  id: string
   name: string
-  year: string
-  rate: string
+  rateFilm: string
+  yearFilm: string
   duration: string
   description: string
   image: string
@@ -31,5 +33,7 @@ export interface Serie {
 }
 
 export namespace GetInfoRepository {
-  export type Result = Movie | Serie
+  export type Result = (Movie | Serie) & {
+    _extra: any
+  }
 }

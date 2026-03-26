@@ -1,12 +1,12 @@
 import { type FactoryContent } from './factories/protocols/factory-content'
-import { makeVizer } from './factories/usecases/makeVizer'
+import { makeWarezcdn } from './factories/usecases/makeWarezcdn'
 
-export type Providers = 'vizer'
+export type Providers = 'warezcdn'
 
-export const makeFilmProvider = (type: Providers): FactoryContent => {
+export const makeFilmProvider = (type: Providers = 'warezcdn'): FactoryContent => {
   switch (type) {
-    case 'vizer':
-      return makeVizer()
+    case 'warezcdn':
+      return makeWarezcdn()
     default:
       throw new Error('Provider not found')
   }

@@ -29,8 +29,9 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "@types/tough-cookie": "^4.0.5",
     "cheerio": "^1.0.0-rc.12",
     "got": "^11.8.2",
-    "puppeteer": "^23.7.1"
+    "tough-cookie": "^6.0.1"
   }
 }
