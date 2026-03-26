@@ -4,4 +4,5 @@ export interface Search {
   image: string | null
   yearFilm: string | null
   rateFilm: string | null
+  provider?: string
 }

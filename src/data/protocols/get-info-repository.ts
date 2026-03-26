@@ -16,6 +16,7 @@ export interface Movie {
   warezcdn: string
   movieId: string
   movieType: 'filme'
+  provider?: string
 }
 
 export interface Serie {
@@ -30,6 +31,7 @@ export interface Serie {
   movieId: string
   movieType: 'serie'
   seasons: Season[]
+  provider?: string
 }
 
 export namespace GetInfoRepository {
