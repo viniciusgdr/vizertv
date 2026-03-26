@@ -414,11 +414,16 @@ export class WarezcdnRepository implements LoadSearchRepository, GetInfoReposito
     if (!slug || isNaN(seasonNum)) return []
 
     const pageHtml = await fetchPage(`${BASE_URL}/serie/${slug}`)
+    const $ = load(pageHtml)
+
+    const contentId = $('[data-contentid]').first().attr('data-contentid') ?? ''
+    const apiContentId = $('[data-apicontentid]').first().attr('data-apicontentid') ?? contentId
+
     const allEpisodes = extractAllEpisodes(pageHtml)
     const episodes = allEpisodes[String(seasonNum)] ?? []
 
     return episodes.map(ep => ({
-      id: String(ep.id),
+      id: `${apiContentId}:${seasonNum}:${ep.epi_num}`,
       title: ep.title,
       released: true,
       name: `${seasonNum}x${ep.epi_num}`,

@@ -8,9 +8,6 @@ export class CinegratistvRepository implements
   LoadSearchRepository,
   GetInfoRepository {
   async search (query: string, options?: LoadSearchRepository.Options): Promise<LoadSearchRepository.Result> {
-    if (options?.type !== 'movie') {
-      return []
-    }
     const url = 'https://cinegratis.tv/engine/ajax/controller.php?mod=search'
     const req = await got.post(url, {
       form: {
