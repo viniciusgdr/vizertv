@@ -6,7 +6,7 @@ import { type GetInfoRepository } from '../../../data/protocols/get-info-reposit
 import { type GetDownloadsRepository } from '../../../data/protocols/get-downloads-repository'
 import { type GetSeasonEpisodesRepository } from '../../../data/protocols/get-season-episodes'
 import { type GetPlayerEpisodeRepository } from '../../../data/protocols/get-player-episode-repository'
-import { type MovieType } from '../../../domain/models/player'
+import { type MovieType, type TypeAudio } from '../../../domain/models/player'
 import { HlsDownloader } from '../hls/downloader'
 
 const BASE_URL = 'https://boraflixhd.lat'
@@ -24,6 +24,7 @@ interface StreamResult {
   videoSource: string
   videoImage: string
   hls: boolean
+  langType: 1 | 2
 }
 
 interface BoraflixEpisode {
@@ -88,7 +89,7 @@ async function resolveViaXpass (tmdbId: string, type: 'movie' | 'tv', season?: n
 
       const file = resp.body?.playlist?.[0]?.sources?.[0]?.file
       if (file) {
-        return { securedLink: file, videoSource: url, videoImage: '', hls: true }
+        return { securedLink: file, videoSource: url, videoImage: '', hls: true, langType: 1 }
       }
     } catch {
       continue
@@ -96,6 +97,10 @@ async function resolveViaXpass (tmdbId: string, type: 'movie' | 'tv', season?: n
   }
 
   return null
+}
+
+function langTypeToAudio (langType: number): TypeAudio {
+  return langType === 2 ? 'leg' : 'dub'
 }
 
 async function fetchPage (url: string): Promise<string> {
@@ -115,7 +120,17 @@ function extractPlayerApis (html: string): string[] {
   try { return JSON.parse(match[1]) } catch { return PLAYER_APIS }
 }
 
-async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<StreamResult | null> {
+interface PlayerPageContext {
+  csrf: string
+  pageToken: string
+  contentId: string
+  contentType: string
+  apiHost: string
+  playerUrl: string
+  cookieJar: CookieJar
+}
+
+async function loadPlayerPage (playerUrl: string): Promise<PlayerPageContext | null> {
   const cookieJar = new CookieJar()
 
   const playerPage = await got.get(playerUrl, {
@@ -139,49 +154,45 @@ async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<St
   const contentIdMatch = html.match(/INITIAL_CONTENT_ID\s*=\s*(\d+)/)
   if (!csrfMatch || !pageTokenMatch || !contentIdMatch) return null
 
-  const csrf = csrfMatch[1]
-  const pageToken = pageTokenMatch[1]
-  const contentId = contentIdMatch[1]
-
   const typeMatch = playerUrl.match(/\/(serie|filme)\//)
-  const contentType = typeMatch ? typeMatch[1] : 'serie'
 
-  const apiHost = new URL(playerUrl).origin
-
-  const optionsResp = await got.post(`${apiHost}/player/options`, {
-    headers: {
-      ...DEFAULT_HEADERS,
-      referer: playerUrl,
-      'x-csrf-token': csrf,
-      'content-type': 'application/x-www-form-urlencoded'
-    },
-    cookieJar,
-    body: `contentid=${contentId}&type=${contentType}&page_token=${encodeURIComponent(pageToken)}&_token=${encodeURIComponent(csrf)}`,
-    responseType: 'json'
-  }) as { body: { data: { options: Array<{ ID: number }> } } }
-
-  const serverId = optionsResp.body?.data?.options?.[0]?.ID
-  if (!serverId) {
-    if (tmdbId) {
-      const xpassType = contentType === 'filme' ? 'movie' : 'tv'
-      const seasonEpMatch = playerUrl.match(/\/serie\/\d+\/(\d+)\/(\d+)/)
-      const season = seasonEpMatch ? parseInt(seasonEpMatch[1], 10) : undefined
-      const episode = seasonEpMatch ? parseInt(seasonEpMatch[2], 10) : undefined
-      const xpassResult = await resolveViaXpass(tmdbId, xpassType, season, episode)
-      if (xpassResult) return xpassResult
-    }
-    return null
+  return {
+    csrf: csrfMatch[1],
+    pageToken: pageTokenMatch[1],
+    contentId: contentIdMatch[1],
+    contentType: typeMatch ? typeMatch[1] : 'serie',
+    apiHost: new URL(playerUrl).origin,
+    playerUrl,
+    cookieJar
   }
+}
 
-  const sourceResp = await got.post(`${apiHost}/player/source`, {
+async function fetchPlayerOptions (ctx: PlayerPageContext): Promise<Array<{ ID: number, type: number }>> {
+  const optionsResp = await got.post(`${ctx.apiHost}/player/options`, {
     headers: {
       ...DEFAULT_HEADERS,
-      referer: playerUrl,
-      'x-csrf-token': csrf,
+      referer: ctx.playerUrl,
+      'x-csrf-token': ctx.csrf,
       'content-type': 'application/x-www-form-urlencoded'
     },
-    cookieJar,
-    body: `video_id=${serverId}&page_token=${encodeURIComponent(pageToken)}&_token=${encodeURIComponent(csrf)}`,
+    cookieJar: ctx.cookieJar,
+    body: `contentid=${ctx.contentId}&type=${ctx.contentType}&page_token=${encodeURIComponent(ctx.pageToken)}&_token=${encodeURIComponent(ctx.csrf)}`,
+    responseType: 'json'
+  }) as { body: { data: { options: Array<{ ID: number, type: number }> } } }
+
+  return optionsResp.body?.data?.options ?? []
+}
+
+async function resolveOptionToStream (option: { ID: number, type: number }, ctx: PlayerPageContext): Promise<StreamResult | null> {
+  const sourceResp = await got.post(`${ctx.apiHost}/player/source`, {
+    headers: {
+      ...DEFAULT_HEADERS,
+      referer: ctx.playerUrl,
+      'x-csrf-token': ctx.csrf,
+      'content-type': 'application/x-www-form-urlencoded'
+    },
+    cookieJar: ctx.cookieJar,
+    body: `video_id=${option.ID}&page_token=${encodeURIComponent(ctx.pageToken)}&_token=${encodeURIComponent(ctx.csrf)}`,
     responseType: 'json'
   }) as { body: { data: { video_url: string } } }
 
@@ -189,8 +200,8 @@ async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<St
   if (!redirectUrl) return null
 
   const redirectResp = await got.get(redirectUrl, {
-    headers: { ...DEFAULT_HEADERS, referer: playerUrl },
-    cookieJar,
+    headers: { ...DEFAULT_HEADERS, referer: ctx.playerUrl },
+    cookieJar: ctx.cookieJar,
     followRedirect: false
   })
 
@@ -198,13 +209,21 @@ async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<St
   if (!finalLocation) return null
 
   const hashMatch = finalLocation.match(/\/video\/([a-f0-9]{32})/)
-  if (!hashMatch) return null
+  if (!hashMatch) {
+    return {
+      securedLink: finalLocation,
+      videoSource: finalLocation,
+      videoImage: '',
+      hls: false,
+      langType: (option.type === 2 ? 2 : 1)
+    }
+  }
   const videoHash = hashMatch[1]
 
   const finalCookieJar = new CookieJar()
 
   await got.get(finalLocation, {
-    headers: { ...DEFAULT_HEADERS, referer: `${apiHost}/` },
+    headers: { ...DEFAULT_HEADERS, referer: `${ctx.apiHost}/` },
     cookieJar: finalCookieJar,
     followRedirect: true
   })
@@ -219,7 +238,7 @@ async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<St
       'x-requested-with': 'XMLHttpRequest'
     },
     cookieJar: finalCookieJar,
-    body: `hash=${videoHash}&r=${encodeURIComponent(`${apiHost}/`)}`,
+    body: `hash=${videoHash}&r=${encodeURIComponent(`${ctx.apiHost}/`)}`,
     responseType: 'json'
   }) as { body: { securedLink?: string, videoSource?: string, videoImage?: string, hls?: boolean } }
 
@@ -230,8 +249,42 @@ async function resolveStreamUrl (playerUrl: string, tmdbId?: string): Promise<St
     securedLink: data.securedLink ?? data.videoSource ?? '',
     videoSource: data.videoSource ?? '',
     videoImage: data.videoImage ?? '',
-    hls: data.hls ?? false
+    hls: data.hls ?? false,
+    langType: (option.type === 2 ? 2 : 1)
   }
+}
+
+async function resolveAllStreams (playerUrl: string, tmdbId?: string): Promise<StreamResult[]> {
+  const ctx = await loadPlayerPage(playerUrl)
+  if (!ctx) return []
+
+  const options = await fetchPlayerOptions(ctx)
+
+  if (options.length === 0) {
+    if (tmdbId) {
+      const xpassType = ctx.contentType === 'filme' ? 'movie' : 'tv'
+      const seasonEpMatch = playerUrl.match(/\/serie\/\d+\/(\d+)\/(\d+)/)
+      const season = seasonEpMatch ? parseInt(seasonEpMatch[1], 10) : undefined
+      const episode = seasonEpMatch ? parseInt(seasonEpMatch[2], 10) : undefined
+      const xpassResult = await resolveViaXpass(tmdbId, xpassType, season, episode)
+      if (xpassResult) return [xpassResult]
+    }
+    return []
+  }
+
+  const dubFirst = [...options].sort((a, b) => a.type - b.type)
+
+  const results: StreamResult[] = []
+  for (const opt of dubFirst) {
+    try {
+      const stream = await resolveOptionToStream(opt, ctx)
+      if (stream) results.push(stream)
+    } catch {
+      continue
+    }
+  }
+
+  return results
 }
 
 export class WarezcdnRepository implements LoadSearchRepository, GetInfoRepository, GetDownloadsRepository, GetSeasonEpisodesRepository {
@@ -375,17 +428,21 @@ export class WarezcdnRepository implements LoadSearchRepository, GetInfoReposito
     const playerUrl = `https://${api}/${path}/${movieId}`
     const hlsDownloader = new HlsDownloader()
 
-    const stream = await resolveStreamUrl(playerUrl, movieId)
-    if (stream?.securedLink) {
-      let urlDownload: Response | null = null
-      try {
-        urlDownload = await hlsDownloader.get(stream.securedLink)
-      } catch {}
-      return [{
-        url: stream.securedLink,
-        urlDownload,
-        type: 'dub'
-      }]
+    const streams = await resolveAllStreams(playerUrl, movieId)
+    if (streams.length > 0) {
+      const results: GetDownloadsRepository.Result[] = []
+      for (const stream of streams) {
+        let urlDownload: Response | null = null
+        try {
+          urlDownload = await hlsDownloader.get(stream.securedLink)
+        } catch {}
+        results.push({
+          url: stream.securedLink,
+          urlDownload,
+          type: langTypeToAudio(stream.langType)
+        })
+      }
+      return results
     }
 
     const xpassFallback = await resolveViaXpass(movieId, movieType === 'serie' ? 'tv' : 'movie')
@@ -397,7 +454,7 @@ export class WarezcdnRepository implements LoadSearchRepository, GetInfoReposito
       return [{
         url: xpassFallback.securedLink,
         urlDownload,
-        type: 'dub'
+        type: langTypeToAudio(xpassFallback.langType)
       }]
     }
 
@@ -442,20 +499,20 @@ export class WarezcdnEpisodeRepository implements GetPlayerEpisodeRepository {
     const primaryApi = PLAYER_APIS[0]
     const playerUrl = `https://${primaryApi}/serie/${apiContentId}/${season}/${episode}`
 
-    const stream = await resolveStreamUrl(playerUrl, apiContentId)
-    if (stream?.securedLink) {
-      return [{
+    const streams = await resolveAllStreams(playerUrl, apiContentId)
+    if (streams.length > 0) {
+      return streams.map(stream => ({
         dataLoadPlayer: `${primaryApi}:${apiContentId}:${season}:${episode}`,
-        typeAudio: 'dub' as const,
+        typeAudio: langTypeToAudio(stream.langType),
         players: [stream.securedLink]
-      }]
+      }))
     }
 
     const xpassFallback = await resolveViaXpass(apiContentId, 'tv', season, episode)
     if (xpassFallback?.securedLink) {
       return [{
         dataLoadPlayer: `xpass:${apiContentId}:${season}:${episode}`,
-        typeAudio: 'dub' as const,
+        typeAudio: langTypeToAudio(xpassFallback.langType),
         players: [xpassFallback.securedLink]
       }]
     }
